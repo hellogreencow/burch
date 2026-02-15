@@ -17,6 +17,8 @@ from .entity import entity_key_from_name
 from .providers.router import SourceRouter
 from .scoring import AOV_BY_CATEGORY
 
+WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql"
+
 
 UNIVERSE_QUERY_LANES: list[tuple[str, str]] = [
     # Bias towards small-to-mid ecommerce brands by targeting Shopify storefronts.
@@ -404,6 +406,87 @@ def _rank_candidates(candidates: Iterable[CandidateAggregate]) -> list[Candidate
     return [agg for _, agg in ranked]
 
 
+def _wikidata_seed_brands(limit: int) -> list[dict[str, str]]:
+    """
+    Pull a real, globally scoped seed list of brands from Wikidata.
+    This avoids the "publisher/service site" failure mode when metasearch queries are noisy.
+    """
+    query = """
+    SELECT ?item ?itemLabel ?website ?inception ?countryLabel ?industryLabel WHERE {
+      ?item wdt:P31/wdt:P279* wd:Q431289 .
+      ?item wdt:P856 ?website .
+      OPTIONAL { ?item wdt:P571 ?inception . }
+      OPTIONAL { ?item wdt:P17 ?country . }
+      OPTIONAL { ?item wdt:P452 ?industry . }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    }
+    """
+    headers = {
+        "Accept": "application/sparql-results+json",
+        "User-Agent": "BURCH-EIDOLON/0.1 (local PoC)",
+    }
+    try:
+        with httpx.Client(timeout=20.0, headers=headers) as client:
+            res = client.get(WIKIDATA_SPARQL_URL, params={"query": query, "format": "json"})
+            res.raise_for_status()
+            payload = res.json()
+    except Exception:
+        return []
+
+    rows: list[dict[str, str]] = []
+    bindings = (payload or {}).get("results", {}).get("bindings", [])
+    for b in bindings:
+        name = (b.get("itemLabel", {}) or {}).get("value", "") or ""
+        website = (b.get("website", {}) or {}).get("value", "") or ""
+        inception = (b.get("inception", {}) or {}).get("value", "") or ""
+        country = (b.get("countryLabel", {}) or {}).get("value", "") or ""
+        industry = (b.get("industryLabel", {}) or {}).get("value", "") or ""
+        if not name or not website:
+            continue
+        rows.append(
+            {
+                "name": _clean_text(name)[:255],
+                "website": _clean_text(website)[:500],
+                "inception": _clean_text(inception)[:50],
+                "country": _clean_text(country)[:120],
+                "industry": _clean_text(industry)[:200],
+            }
+        )
+
+    def inception_sort_key(row: dict[str, str]) -> str:
+        # ISO timestamp sorts lexicographically; blank goes last.
+        return row.get("inception") or ""
+
+    # Prefer newer brands when inception is present.
+    rows.sort(key=inception_sort_key, reverse=True)
+    return rows[: max(0, int(limit))]
+
+
+def _category_from_industry(industry: str) -> str:
+    text = (industry or "").lower()
+    if any(k in text for k in ("cosmetic", "skin", "beauty", "makeup")):
+        return "Beauty"
+    if any(k in text for k in ("personal care", "hygiene", "toiletries")):
+        return "Personal Care"
+    if any(k in text for k in ("food", "beverage", "snack", "drink")):
+        return "Food & Beverage"
+    if any(k in text for k in ("apparel", "clothing", "fashion")):
+        return "Apparel"
+    if any(k in text for k in ("outdoor", "sporting goods", "trail", "camp")):
+        return "Outdoor"
+    if any(k in text for k in ("home", "furniture", "housewares", "kitchen")):
+        return "Home Goods"
+    if "pet" in text:
+        return "Pet"
+    if any(k in text for k in ("baby", "child", "toy")):
+        return "Childcare"
+    if any(k in text for k in ("electronics", "consumer electronics", "hardware")):
+        return "Consumer Tech"
+    if any(k in text for k in ("health", "supplement", "wellness", "nutrition")):
+        return "Wellness"
+    return "Unknown"
+
+
 def _signal_counts_from_results(results: list[dict[str, str]], brand_host: str) -> dict[str, int]:
     counts = {
         "brand_site": 0,
@@ -647,102 +730,162 @@ def refresh_universe_snapshot(
         ranked = _rank_candidates(candidates.values())[: max(25, target_brands)]
         metadata_fetch_limit = max(30, enrich_top_n)
 
-        for idx, agg in enumerate(ranked):
-            site_url = _canonical_site_url(agg.host)
-            final_url = site_url
-            title = ""
-            desc = ""
-            if idx < metadata_fetch_limit:
-                final_url, title, desc = _fetch_site_metadata(site_url)
-            final_host = _host(final_url) or agg.host
-            seed_context = " ".join(
-                f"{row.get('title', '')} {row.get('snippet', '')}" for row in agg.seed_evidence[:3] if isinstance(row, dict)
-            )
-            if _looks_like_publisher(title, desc or seed_context):
-                continue
-
-            # Gate on "brand-like" ecommerce behavior. This keeps the PoC from filling with publishers/services.
-            seed_sku_count, _ = _try_shopify_products(final_url)
-            if seed_sku_count is None or seed_sku_count < 1:
-                continue
-
-            name = _name_from_title_tag(title) or _fallback_brand_name(final_host)
-            entity_key = entity_key_from_name(name) or _domain_label(final_host)
-            brand_id_from_host = _stable_brand_id(final_host)
-            description = desc
-            if not description:
-                for row in agg.seed_evidence:
-                    snippet = (row.get("snippet") or "").strip()
-                    if snippet:
-                        description = snippet[:600]
-                        break
-            description = description or ""
-            category = agg.primary_category
-            region = "Global"
-
-            brand = db.query(models.Brand).filter(models.Brand.id == brand_id_from_host).one_or_none()
-            # Entity-resolution pass: if this host is a duplicate of an existing brand name, merge into that row.
-            if not brand and entity_key:
-                brand = db.query(models.Brand).filter(models.Brand.entity_key == entity_key).one_or_none()
-            brand_id = brand.id if brand else brand_id_from_host
-            if brand:
-                # Name: prefer the longer / less-generic string.
-                if len((name or "").strip()) >= len((brand.name or "").strip()):
-                    brand.name = name
-                brand.entity_key = entity_key
-                # Website: avoid overwriting a canonical site with social/publisher hosts.
-                existing_host = _host(brand.website or "")
-                candidate_host = _host(final_url or "")
-                if not brand.website:
-                    brand.website = final_url
-                elif existing_host == candidate_host:
-                    brand.website = final_url
-                elif (_is_excluded_host(existing_host) or _is_publisher_host(existing_host)) and not (
-                    _is_excluded_host(candidate_host) or _is_publisher_host(candidate_host)
-                ):
-                    brand.website = final_url
-
-                # Description: keep the richer text.
-                if len((description or "").strip()) >= len((brand.description or "").strip()):
-                    brand.description = description
-                brand.category = category
-                brand.region = region
-                updated += 1
-            else:
-                db.add(
-                    models.Brand(
-                        id=brand_id,
-                        name=name,
-                        entity_key=entity_key,
-                        category=category,
-                        region=region,
-                        website=final_url,
-                        description=description,
-                    )
-                )
-                created += 1
-
-            # Seed minimal evidence from the universe lane results (real URLs).
-            seed_seen = {
-                row[0]
-                for row in db.query(models.EvidenceCitation.url).filter(models.EvidenceCitation.brand_id == brand_id).all()
-            }
-            for row in agg.seed_evidence[:3]:
-                if row["url"] in seed_seen:
+        # If metasearch is too noisy / low recall, fall back to a real seed list (Wikidata).
+        if len(ranked) < 10:
+            seed_rows = _wikidata_seed_brands(limit=max(200, target_brands * 3))
+            for row in seed_rows:
+                website = row.get("website") or ""
+                host = _host(website)
+                if not host:
                     continue
-                seed_seen.add(row["url"])
-                db.add(
-                    models.EvidenceCitation(
-                        brand_id=brand_id,
-                        title=row["title"],
-                        url=row["url"],
-                        snippet=row["snippet"],
-                        source=row["source"] or "searxng",
-                        reliability=round(_source_reliability(row["source"]), 3),
-                    )
-                )
+                if _is_excluded_host(host) or _is_publisher_host(host):
+                    continue
 
-        db.commit()
+                inception = row.get("inception") or ""
+                year = None
+                if len(inception) >= 4 and inception[:4].isdigit():
+                    year = int(inception[:4])
+                # Prefer "emerging" by skipping very old inception dates when available.
+                if year is not None and year < 2010:
+                    continue
+
+                brand_id = _stable_brand_id(host)
+                name = row.get("name") or _fallback_brand_name(host)
+                entity_key = entity_key_from_name(name) or _domain_label(host)
+                category = _category_from_industry(row.get("industry") or "")
+                region = row.get("country") or "Global"
+
+                brand = db.query(models.Brand).filter(models.Brand.id == brand_id).one_or_none()
+                if brand:
+                    brand.name = name
+                    brand.entity_key = entity_key
+                    brand.website = website
+                    brand.category = category
+                    brand.region = region
+                    if not (brand.description or "").strip():
+                        brand.description = ""
+                    updated += 1
+                else:
+                    db.add(
+                        models.Brand(
+                            id=brand_id,
+                            name=name,
+                            entity_key=entity_key,
+                            category=category,
+                            region=region,
+                            website=website,
+                            description="",
+                        )
+                    )
+                    created += 1
+
+            db.commit()
+            brands = db.query(models.Brand).all()
+            if brands:
+                # Continue into scoring stage below.
+                pass
+            else:
+                return {"status": "ok", "brands": 0, "created": created, "updated": updated, "snapshots": 0}
+        else:
+            # Standard universe build via metasearch candidates.
+            metadata_fetch_limit = max(30, enrich_top_n)
+
+            for idx, agg in enumerate(ranked):
+                site_url = _canonical_site_url(agg.host)
+                final_url = site_url
+                title = ""
+                desc = ""
+                if idx < metadata_fetch_limit:
+                    final_url, title, desc = _fetch_site_metadata(site_url)
+                final_host = _host(final_url) or agg.host
+                seed_context = " ".join(
+                    f"{row.get('title', '')} {row.get('snippet', '')}" for row in agg.seed_evidence[:3] if isinstance(row, dict)
+                )
+                if _looks_like_publisher(title, desc or seed_context):
+                    continue
+
+                # Gate on "brand-like" ecommerce behavior. This keeps the PoC from filling with publishers/services.
+                seed_sku_count, _ = _try_shopify_products(final_url)
+                if seed_sku_count is None or seed_sku_count < 1:
+                    continue
+
+                name = _name_from_title_tag(title) or _fallback_brand_name(final_host)
+                entity_key = entity_key_from_name(name) or _domain_label(final_host)
+                brand_id_from_host = _stable_brand_id(final_host)
+                description = desc
+                if not description:
+                    for row in agg.seed_evidence:
+                        snippet = (row.get("snippet") or "").strip()
+                        if snippet:
+                            description = snippet[:600]
+                            break
+                description = description or ""
+                category = agg.primary_category
+                region = "Global"
+
+                brand = db.query(models.Brand).filter(models.Brand.id == brand_id_from_host).one_or_none()
+                # Entity-resolution pass: if this host is a duplicate of an existing brand name, merge into that row.
+                if not brand and entity_key:
+                    brand = db.query(models.Brand).filter(models.Brand.entity_key == entity_key).one_or_none()
+                brand_id = brand.id if brand else brand_id_from_host
+                if brand:
+                    # Name: prefer the longer / less-generic string.
+                    if len((name or "").strip()) >= len((brand.name or "").strip()):
+                        brand.name = name
+                    brand.entity_key = entity_key
+                    # Website: avoid overwriting a canonical site with social/publisher hosts.
+                    existing_host = _host(brand.website or "")
+                    candidate_host = _host(final_url or "")
+                    if not brand.website:
+                        brand.website = final_url
+                    elif existing_host == candidate_host:
+                        brand.website = final_url
+                    elif (_is_excluded_host(existing_host) or _is_publisher_host(existing_host)) and not (
+                        _is_excluded_host(candidate_host) or _is_publisher_host(candidate_host)
+                    ):
+                        brand.website = final_url
+
+                    # Description: keep the richer text.
+                    if len((description or "").strip()) >= len((brand.description or "").strip()):
+                        brand.description = description
+                    brand.category = category
+                    brand.region = region
+                    updated += 1
+                else:
+                    db.add(
+                        models.Brand(
+                            id=brand_id,
+                            name=name,
+                            entity_key=entity_key,
+                            category=category,
+                            region=region,
+                            website=final_url,
+                            description=description,
+                        )
+                    )
+                    created += 1
+
+                # Seed minimal evidence from the universe lane results (real URLs).
+                seed_seen = {
+                    row[0]
+                    for row in db.query(models.EvidenceCitation.url).filter(models.EvidenceCitation.brand_id == brand_id).all()
+                }
+                for row in agg.seed_evidence[:3]:
+                    if row["url"] in seed_seen:
+                        continue
+                    seed_seen.add(row["url"])
+                    db.add(
+                        models.EvidenceCitation(
+                            brand_id=brand_id,
+                            title=row["title"],
+                            url=row["url"],
+                            snippet=row["snippet"],
+                            source=row["source"] or "searxng",
+                            reliability=round(_source_reliability(row["source"]), 3),
+                        )
+                    )
+
+            db.commit()
 
     # Score snapshot for the current week.
     brands = db.query(models.Brand).all()
