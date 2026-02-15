@@ -411,7 +411,13 @@ def _wikidata_seed_brands(limit: int) -> list[dict[str, str]]:
     Pull a real, globally scoped seed list of brands from Wikidata.
     This avoids the "publisher/service site" failure mode when metasearch queries are noisy.
     """
+    # Explicit prefixes to ensure compatibility when calling the endpoint directly.
     query = """
+    PREFIX wd: <http://www.wikidata.org/entity/>
+    PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+    PREFIX wikibase: <http://wikiba.se/ontology#>
+    PREFIX bd: <http://www.bigdata.com/rdf#>
+
     SELECT ?item ?itemLabel ?website ?inception ?countryLabel ?industryLabel WHERE {
       ?item wdt:P31/wdt:P279* wd:Q431289 .
       ?item wdt:P856 ?website .
@@ -420,6 +426,7 @@ def _wikidata_seed_brands(limit: int) -> list[dict[str, str]]:
       OPTIONAL { ?item wdt:P452 ?industry . }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
     }
+    LIMIT 800
     """
     headers = {
         "Accept": "application/sparql-results+json",
