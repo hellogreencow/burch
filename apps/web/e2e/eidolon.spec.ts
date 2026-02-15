@@ -150,7 +150,7 @@ test.describe("BURCH-EIDOLON one-page feature suite", () => {
     await waitForFeed(page);
 
     await page.locator(".dock-tabs").getByRole("button", { name: "Analyst", exact: true }).click();
-    const input = page.getByLabel("AI analyst message");
+    const input = page.locator("#dock").getByLabel("AI analyst message");
     await input.fill("Give me diligence risks and cheaper production options.");
     await page.getByRole("button", { name: "Send" }).click();
 
