@@ -55,6 +55,21 @@ EXCLUDED_HOST_FRAGMENTS = (
     "amazon.",
     "etsy.com",
     "ebay.",
+    # Ecommerce tooling / dictionaries (common false positives for "powered by Shopify" queries)
+    "shopify.com",
+    "omnisend.com",
+    "gempages.",
+    "pagefly.",
+    "sitebuilderreport.com",
+    "webinopoly.com",
+    "sellercenter.",
+    "analyzify.com",
+    "wordreference.com",
+    "oxfordlearnersdictionaries.com",
+    "ldoceonline.com",
+    "definitions.net",
+    "askdifference.com",
+    "powerthesaurus.org",
 )
 
 # This is intentionally conservative: we only use this list to avoid treating publishers as brands.
