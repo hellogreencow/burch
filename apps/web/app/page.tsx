@@ -817,13 +817,13 @@ export default function HomePage() {
                     void sendChat(event);
                   }}
                 >
-                  <input
-                    ref={chatInputRef}
-                    value={chatInput}
-                    onChange={(event) => setChatInput(event.target.value)}
-                    placeholder="Ask BURCH-EIDOLON..."
-                    aria-label="AI analyst overlay message"
-                  />
+	                  <input
+	                    ref={chatInputRef}
+	                    value={chatInput}
+	                    onChange={(event) => setChatInput(event.target.value)}
+	                    placeholder="Ask BURCH-EIDOLON..."
+	                    aria-label="AI analyst message"
+	                  />
                   <button type="submit" disabled={sendingChat}>
                     {sendingChat ? "Sending..." : "Send"}
                   </button>
@@ -896,13 +896,13 @@ export default function HomePage() {
                   void sendChat(event);
                 }}
               >
-                <input
-                  ref={chatInputRef}
-                  value={chatInput}
-                  onChange={(event) => setChatInput(event.target.value)}
-                  placeholder="Ask BURCH-EIDOLON..."
-                  aria-label="AI analyst message"
-                />
+	                <input
+	                  ref={chatInputRef}
+	                  value={chatInput}
+	                  onChange={(event) => setChatInput(event.target.value)}
+	                  placeholder="Ask BURCH-EIDOLON..."
+	                  aria-label="AI analyst overlay message"
+	                />
                 <button type="submit" disabled={sendingChat}>
                   {sendingChat ? "Sending..." : "Send"}
                 </button>
