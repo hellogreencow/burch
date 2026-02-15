@@ -933,6 +933,17 @@ def refresh_universe_snapshot(
     for brand in brands[:target_brands]:
         # Retrieval: brand context + site depth (both real web).
         brand_host = _host(brand.website)
+        name_tokens = [t for t in re.split(r"[^a-z0-9]+", (brand.name or "").lower()) if len(t) >= 3]
+        name_tokens = [t for t in name_tokens if t not in {"the", "and", "for", "with", "official", "shop", "store"}]
+        required_tokens = min(2, len(name_tokens)) if name_tokens else 0
+
+        def _matches_brand(text: str) -> bool:
+            if required_tokens == 0:
+                return True
+            lowered = (text or "").lower()
+            hits = sum(1 for tok in name_tokens if tok in lowered)
+            return hits >= required_tokens
+
         baseline_queries = [
             f"site:{brand_host}",
             f"\"{brand.name}\" \"{brand_host}\"",
@@ -974,6 +985,8 @@ def refresh_universe_snapshot(
                 _ = provider
                 for r in results:
                     if not r.url or r.url in seen_urls:
+                        continue
+                    if not _matches_brand(f"{r.url} {r.title} {r.snippet}"):
                         continue
                     seen_urls.add(r.url)
                     evidence_rows.append({"title": r.title, "url": r.url, "snippet": r.snippet, "source": r.source})
