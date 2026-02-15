@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     api_base_url: str = "http://api:8000"
     searxng_base_url: str = "http://searxng:8080"
     # Comma-separated SearXNG engines to use (avoid captcha-prone defaults).
-    searxng_engines: str = "mojeek,bing"
+    searxng_engines: str = "duckduckgo,brave,seznam,bing"
     worker_interval_seconds: int = 900
 
 

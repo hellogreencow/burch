@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     searxng_base_url: str = "http://localhost:8080"
     # Restrict to engines that reliably return results without CAPTCHAs in a self-hosted setup.
     # Comma-separated list passed through to SearXNG's `engines` query param.
-    searxng_engines: str = "mojeek,bing"
+    searxng_engines: str = "duckduckgo,brave,seznam,bing"
     daily_query_budget: int = 500
     monthly_spend_limit_usd: float = 300.0
 
