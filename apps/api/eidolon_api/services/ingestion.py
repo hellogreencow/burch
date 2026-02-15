@@ -421,10 +421,13 @@ def _wikidata_seed_brands(limit: int) -> list[dict[str, str]]:
     SELECT ?item ?itemLabel ?website ?inception ?countryLabel ?industryLabel WHERE {
       ?item wdt:P31/wdt:P279* wd:Q431289 .
       ?item wdt:P856 ?website .
+      ?item wdt:P452 ?industry .
       OPTIONAL { ?item wdt:P571 ?inception . }
       OPTIONAL { ?item wdt:P17 ?country . }
-      OPTIONAL { ?item wdt:P452 ?industry . }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+      FILTER(REGEX(LCASE(STR(?industryLabel)),
+        "(cosmetic|beauty|skincare|hair|personal care|toiletr|food|beverage|snack|supplement|wellness|pet|apparel|clothing|fashion|outdoor|sporting goods|home|furniture|houseware|kitchen|baby|toy|consumer electronic)",
+        "i"))
     }
     LIMIT 800
     """
