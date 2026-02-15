@@ -26,7 +26,7 @@ One-page ethereal deal intelligence app with FastAPI backend, Next.js frontend, 
 - Paid search providers are disabled by default.
 - Set `OPENROUTER_API_KEY` to enable live model-backed chat.
 - Generated reports are written to `reports/generated/`.
-- Brand outputs now include production-option and cost-down opportunity intelligence, grounded to `DEAL FLOW ENGINE.pdf`.
+- Brand outputs include production-option and cost-down opportunity intelligence aligned to the deal-flow workflow.
 - AI chat includes `Production Plan` mode for a structured 30/60/90 cost-down execution strategy.
 - `run.sh` reads `OPENROUTER_API_KEY` from `.env` (or from environment variable on first bootstrap).
 - `run.sh` assigns random free host ports for web and API on every start.

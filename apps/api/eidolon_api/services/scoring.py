@@ -63,7 +63,7 @@ SEARCH_CULTURAL_SIGNAL_CONFIG: list[tuple[str, str, str]] = [
     ("resale_activity", "Resale platform activity", "market_proxy"),
 ]
 
-TRAILING_VERSION_RE = re.compile(r"\s+\d+$")
+from .entity import canonical_display_name, entity_key_from_name
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -71,9 +71,7 @@ def _clamp(value: float, low: float, high: float) -> float:
 
 
 def _canonical_company_name(name: str) -> str:
-    normalized = " ".join(name.split()).strip()
-    canonical = TRAILING_VERSION_RE.sub("", normalized)
-    return canonical or normalized
+    return canonical_display_name(name)
 
 
 def _avg_metric(points: list[models.TimeSeriesPoint], metric: str, default: float) -> float:
@@ -348,7 +346,7 @@ def build_feed(
     seen_entities: set[str] = set()
     for brand, score in rows:
         display_name = _canonical_company_name(brand.name)
-        entity_key = display_name.lower()
+        entity_key = getattr(brand, "entity_key", None) or entity_key_from_name(display_name) or display_name.lower()
         if entity_key in seen_entities:
             continue
         seen_entities.add(entity_key)

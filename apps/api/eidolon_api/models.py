@@ -13,6 +13,8 @@ class Brand(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), index=True)
+    # Used to collapse duplicate entity rows caused by multiple domains / title variants.
+    entity_key: Mapped[str] = mapped_column(String(140), index=True, default="")
     category: Mapped[str] = mapped_column(String(120), index=True)
     region: Mapped[str] = mapped_column(String(120), index=True)
     website: Mapped[str] = mapped_column(String(255))

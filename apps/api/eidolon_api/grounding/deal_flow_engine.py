@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-GROUNDING_DOC_TITLE = "DEAL FLOW ENGINE - Brand Intelligence & Deal Sourcing Engine v1.1"
-GROUNDING_DOC_PATH = "/Users/oli/Downloads/DEAL FLOW ENGINE.pdf"
+GROUNDING_DOC_TITLE = "Deal Flow Engine - Brand Intelligence & Deal Sourcing Engine"
 
 # Distilled requirements from the source document.
 GROUNDING_PRINCIPLES = [
@@ -25,7 +24,6 @@ GROUNDING_OUTPUT_EXPECTATIONS = [
 @dataclass
 class GroundingContext:
     title: str
-    source_path: str
     principles: list[str]
     output_expectations: list[str]
 
@@ -33,7 +31,6 @@ class GroundingContext:
 def get_grounding_context() -> GroundingContext:
     return GroundingContext(
         title=GROUNDING_DOC_TITLE,
-        source_path=GROUNDING_DOC_PATH,
         principles=list(GROUNDING_PRINCIPLES),
         output_expectations=list(GROUNDING_OUTPUT_EXPECTATIONS),
     )
@@ -41,11 +38,9 @@ def get_grounding_context() -> GroundingContext:
 
 def format_grounding_block() -> str:
     lines = [
-        f"Grounding source: {GROUNDING_DOC_TITLE}",
-        f"Source path: {GROUNDING_DOC_PATH}",
-        "Core principles:",
-    ]
+        "Workflow anchor:",
+        ]
     lines.extend([f"- {line}" for line in GROUNDING_PRINCIPLES])
-    lines.append("Output expectations:")
+    lines.append("Outputs:")
     lines.extend([f"- {line}" for line in GROUNDING_OUTPUT_EXPECTATIONS])
     return "\n".join(lines)

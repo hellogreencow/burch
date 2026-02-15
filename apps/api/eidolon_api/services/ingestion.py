@@ -13,6 +13,7 @@ from sqlalchemy import delete, func
 from sqlalchemy.orm import Session
 
 from .. import models
+from .entity import entity_key_from_name
 from .providers.router import SourceRouter
 from .scoring import AOV_BY_CATEGORY
 
@@ -571,6 +572,7 @@ def _legacy_synthetic_present(db: Session) -> bool:
     Detect legacy synthetic datasets from early PoC iterations.
     If present, we wipe the DB so the universe is rebuilt from real retrieval.
     """
+    brand_total = int(db.query(func.count(models.Brand.id)).scalar() or 0)
     brand_ids = [row[0] for row in db.query(models.Brand.id).limit(5000).all()]
     for bid in brand_ids:
         # Legacy seed used "brand-001" style identifiers.
@@ -581,6 +583,12 @@ def _legacy_synthetic_present(db: Session) -> bool:
     evidence_urls = [row[0] for row in db.query(models.EvidenceCitation.url).limit(5000).all()]
     for url in evidence_urls:
         if url and any(fragment in url for fragment in bad_url_fragments):
+            return True
+
+    # Heuristic: synthetic datasets often have very low evidence coverage (or no brand-site corroboration).
+    if brand_total >= 20:
+        evidence_brand_count = int(db.query(func.count(func.distinct(models.EvidenceCitation.brand_id))).scalar() or 0)
+        if evidence_brand_count < int(brand_total * 0.35):
             return True
     return False
 
@@ -625,8 +633,9 @@ def refresh_universe_snapshot(
             if _looks_like_publisher(title, desc or seed_context):
                 continue
 
-            brand_id = _stable_brand_id(final_host)
             name = _name_from_title_tag(title) or _fallback_brand_name(final_host)
+            entity_key = entity_key_from_name(name) or _domain_label(final_host)
+            brand_id_from_host = _stable_brand_id(final_host)
             description = desc
             if not description:
                 for row in agg.seed_evidence:
@@ -638,11 +647,31 @@ def refresh_universe_snapshot(
             category = agg.primary_category
             region = "Global"
 
-            brand = db.query(models.Brand).filter(models.Brand.id == brand_id).one_or_none()
+            brand = db.query(models.Brand).filter(models.Brand.id == brand_id_from_host).one_or_none()
+            # Entity-resolution pass: if this host is a duplicate of an existing brand name, merge into that row.
+            if not brand and entity_key:
+                brand = db.query(models.Brand).filter(models.Brand.entity_key == entity_key).one_or_none()
+            brand_id = brand.id if brand else brand_id_from_host
             if brand:
-                brand.name = name
-                brand.website = final_url
-                brand.description = description
+                # Name: prefer the longer / less-generic string.
+                if len((name or "").strip()) >= len((brand.name or "").strip()):
+                    brand.name = name
+                brand.entity_key = entity_key
+                # Website: avoid overwriting a canonical site with social/publisher hosts.
+                existing_host = _host(brand.website or "")
+                candidate_host = _host(final_url or "")
+                if not brand.website:
+                    brand.website = final_url
+                elif existing_host == candidate_host:
+                    brand.website = final_url
+                elif (_is_excluded_host(existing_host) or _is_publisher_host(existing_host)) and not (
+                    _is_excluded_host(candidate_host) or _is_publisher_host(candidate_host)
+                ):
+                    brand.website = final_url
+
+                # Description: keep the richer text.
+                if len((description or "").strip()) >= len((brand.description or "").strip()):
+                    brand.description = description
                 brand.category = category
                 brand.region = region
                 updated += 1
@@ -651,6 +680,7 @@ def refresh_universe_snapshot(
                     models.Brand(
                         id=brand_id,
                         name=name,
+                        entity_key=entity_key,
                         category=category,
                         region=region,
                         website=final_url,

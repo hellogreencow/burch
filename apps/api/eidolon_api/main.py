@@ -22,7 +22,7 @@ from .schemas import (
 )
 from .services.chat import ChatService
 from .services.discovery import discover_companies
-from .services.ingestion import refresh_universe_snapshot, reseed_universe
+from .services.ingestion import _legacy_synthetic_present, refresh_universe_snapshot, reseed_universe, reset_all_data
 from .services.providers.router import SourceRouter
 from .services.reporting import ReportService
 from .services.scoring import build_brand_profile, build_feed, get_timeseries
@@ -36,6 +36,9 @@ async def lifespan(_: FastAPI):
     init_db()
     db = SessionLocal()
     try:
+        # Keep runtime "no fake" by automatically wiping older synthetic PoC datasets if detected.
+        if _legacy_synthetic_present(db):
+            reset_all_data(db)
         yield
     finally:
         db.close()

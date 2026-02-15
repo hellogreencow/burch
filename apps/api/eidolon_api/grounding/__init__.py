@@ -1,1 +1,1 @@
-# Grounding references derived from DEAL FLOW ENGINE.pdf
+"""Workflow anchor references derived from the deal-flow methodology."""
