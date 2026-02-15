@@ -19,22 +19,23 @@ from .scoring import AOV_BY_CATEGORY
 
 
 UNIVERSE_QUERY_LANES: list[tuple[str, str]] = [
-    # These are tuned to bias towards official brand sites / commerce pages, not publisher listicles.
-    ("outdoor apparel brand shop official site", "Outdoor"),
-    ("trail running brand shop official site", "Outdoor"),
-    ("skincare brand shop official site", "Beauty"),
-    ("haircare brand shop official site", "Beauty"),
-    ("clean personal care brand shop official site", "Personal Care"),
-    ("functional beverage brand shop direct to consumer", "Food & Beverage"),
-    ("snack brand shop direct to consumer", "Food & Beverage"),
-    ("wellness supplement brand shop official site", "Wellness"),
-    ("pet food brand shop direct to consumer", "Pet"),
-    ("home fragrance brand shop official site", "Home Goods"),
-    ("home goods brand shop official site", "Home Goods"),
-    ("baby brand shop direct to consumer", "Childcare"),
-    ("kids toy brand shop direct to consumer", "Childcare"),
-    ("consumer electronics brand shop direct to consumer", "Consumer Tech"),
-    ("apparel brand shop direct to consumer", "Apparel"),
+    # Bias towards small-to-mid ecommerce brands by targeting Shopify storefronts.
+    # This is intentionally narrower than the long-term vision, but keeps the PoC "real data" and avoids publishers.
+    ("\"powered by Shopify\" outdoor apparel", "Outdoor"),
+    ("\"powered by Shopify\" trail running", "Outdoor"),
+    ("\"powered by Shopify\" skincare", "Beauty"),
+    ("\"powered by Shopify\" haircare", "Beauty"),
+    ("\"powered by Shopify\" personal care", "Personal Care"),
+    ("\"powered by Shopify\" functional beverage", "Food & Beverage"),
+    ("\"powered by Shopify\" snacks", "Food & Beverage"),
+    ("\"powered by Shopify\" supplements", "Wellness"),
+    ("\"powered by Shopify\" pet food", "Pet"),
+    ("\"powered by Shopify\" home fragrance", "Home Goods"),
+    ("\"powered by Shopify\" home goods", "Home Goods"),
+    ("\"powered by Shopify\" baby", "Childcare"),
+    ("\"powered by Shopify\" toys", "Childcare"),
+    ("\"powered by Shopify\" electronics", "Consumer Tech"),
+    ("\"powered by Shopify\" apparel", "Apparel"),
 ]
 
 EXCLUDED_HOST_FRAGMENTS = (
@@ -658,6 +659,11 @@ def refresh_universe_snapshot(
                 f"{row.get('title', '')} {row.get('snippet', '')}" for row in agg.seed_evidence[:3] if isinstance(row, dict)
             )
             if _looks_like_publisher(title, desc or seed_context):
+                continue
+
+            # Gate on "brand-like" ecommerce behavior. This keeps the PoC from filling with publishers/services.
+            seed_sku_count, _ = _try_shopify_products(final_url)
+            if seed_sku_count is None or seed_sku_count < 1:
                 continue
 
             name = _name_from_title_tag(title) or _fallback_brand_name(final_host)
