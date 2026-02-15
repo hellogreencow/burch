@@ -15,10 +15,18 @@ dist/
 .env
 .env.local
 .env.*.local
+.local/
 
 # Artifacts
 reports/generated/
+apps/api/reports/generated/
+apps/api/eidolon.db
 *.log
 
 # macOS
 .DS_Store
+
+# Playwright / build outputs
+apps/web/playwright-report/
+apps/web/test-results/
+*.tsbuildinfo
