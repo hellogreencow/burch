@@ -932,9 +932,46 @@ def refresh_universe_snapshot(
     snapshots_written = 0
     for brand in brands[:target_brands]:
         # Retrieval: brand context + site depth (both real web).
-        provider, evidence = router.search(query=f"\"{brand.name}\" {brand.website}", limit=20)
-        provider2, traffic = router.search(query=f"site:{_host(brand.website)}", limit=20)
-        _ = (provider, provider2)
+        brand_host = _host(brand.website)
+        baseline_queries = [
+            f"site:{brand_host}",
+            f"\"{brand.name}\" site:{brand_host}",
+        ]
+        enrich_queries: list[str] = []
+        if brand.id in enrich_set:
+            enrich_queries = [
+                f"\"{brand.name}\" instagram",
+                f"\"{brand.name}\" tiktok",
+                f"\"{brand.name}\" reddit",
+                f"\"{brand.name}\" meta ad library",
+            ]
+
+        evidence_rows: list[dict[str, str]] = []
+        traffic_rows: list[dict[str, str]] = []
+        seen_urls: set[str] = set()
+
+        for q in baseline_queries:
+            provider, results = router.search(query=q, limit=20)
+            _ = provider
+            for r in results:
+                if not r.url or r.url in seen_urls:
+                    continue
+                seen_urls.add(r.url)
+                row = {"title": r.title, "url": r.url, "snippet": r.snippet, "source": r.source}
+                if q.startswith("site:"):
+                    traffic_rows.append(row)
+                else:
+                    evidence_rows.append(row)
+
+        if enrich_queries:
+            for q in enrich_queries:
+                provider, results = router.search(query=q, limit=10)
+                _ = provider
+                for r in results:
+                    if not r.url or r.url in seen_urls:
+                        continue
+                    seen_urls.add(r.url)
+                    evidence_rows.append({"title": r.title, "url": r.url, "snippet": r.snippet, "source": r.source})
 
         extra_evidence_rows: list[dict[str, str]] = []
         if brand.id in enrich_set:
@@ -953,19 +990,12 @@ def refresh_universe_snapshot(
                 if r.url
             ]
 
-        evidence_rows = [
-            {"title": r.title, "url": r.url, "snippet": r.snippet, "source": r.source} for r in evidence if r.url
-        ]
-        traffic_rows = [
-            {"title": r.title, "url": r.url, "snippet": r.snippet, "source": r.source} for r in traffic if r.url
-        ]
-
         sku_count, median_price = _try_shopify_products(brand.website)
         metrics = _compute_snapshot_metrics(
             category=brand.category,
             evidence_results=evidence_rows,
             traffic_results=traffic_rows,
-            brand_host=_host(brand.website),
+            brand_host=brand_host,
             sku_count=sku_count,
             median_price_usd=median_price,
         )
