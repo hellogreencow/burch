@@ -740,10 +740,14 @@ def refresh_universe_snapshot(
         # If metasearch is too noisy / low recall, fall back to a real seed list (Wikidata).
         if len(ranked) < 10:
             seed_rows = _wikidata_seed_brands(limit=max(200, target_brands * 3))
+            seen_hosts: set[str] = set()
+            seen_ids: set[str] = set()
             for row in seed_rows:
                 website = row.get("website") or ""
                 host = _host(website)
                 if not host:
+                    continue
+                if host in seen_hosts:
                     continue
                 if _is_excluded_host(host) or _is_publisher_host(host):
                     continue
@@ -757,6 +761,10 @@ def refresh_universe_snapshot(
                     continue
 
                 brand_id = _stable_brand_id(host)
+                if brand_id in seen_ids:
+                    continue
+                seen_hosts.add(host)
+                seen_ids.add(brand_id)
                 name = row.get("name") or _fallback_brand_name(host)
                 entity_key = entity_key_from_name(name) or _domain_label(host)
                 category = _category_from_industry(row.get("industry") or "")
