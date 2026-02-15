@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FeedResponse",
+  "type": "object",
+  "required": ["generated_at", "sort", "items"],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "sort": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "brand_id",
+          "name",
+          "category",
+          "heat_score",
+          "risk_score",
+          "asymmetry_index",
+          "revenue_p50",
+          "confidence"
+        ],
+        "properties": {
+          "brand_id": { "type": "string" },
+          "name": { "type": "string" },
+          "category": { "type": "string" },
+          "heat_score": { "type": "number" },
+          "risk_score": { "type": "number" },
+          "asymmetry_index": { "type": "number" },
+          "revenue_p50": { "type": "number" },
+          "confidence": { "type": "number" },
+          "delta_heat": { "type": "number" },
+          "capital_intensity": { "type": "number" }
+        }
+      }
+    }
+  }
+}

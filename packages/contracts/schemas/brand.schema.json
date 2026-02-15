@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BrandProfile",
+  "type": "object",
+  "required": [
+    "brand",
+    "scorecard",
+    "confidence",
+    "evidence",
+    "production_snapshot",
+    "production_options",
+    "cost_reduction_opportunities",
+    "grounding_notes",
+    "memo_preview"
+  ],
+  "properties": {
+    "brand": {
+      "type": "object",
+      "required": ["id", "name", "category", "region", "website"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "region": { "type": "string" },
+        "website": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "scorecard": { "type": "object" },
+    "confidence": {
+      "type": "object",
+      "required": ["overall", "reasons"],
+      "properties": {
+        "overall": { "type": "number" },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "url", "source"],
+        "properties": {
+          "title": { "type": "string" },
+          "url": { "type": "string" },
+          "snippet": { "type": "string" },
+          "source": { "type": "string" },
+          "reliability": { "type": "number" }
+        }
+      }
+    },
+    "production_snapshot": {
+      "type": "object",
+      "required": ["current_model", "unit_economics_pressure", "bottlenecks", "confidence"],
+      "properties": {
+        "current_model": { "type": "string" },
+        "unit_economics_pressure": { "type": "string" },
+        "bottlenecks": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "number" }
+      }
+    },
+    "production_options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "option_name",
+          "mode",
+          "estimated_savings_pct",
+          "capex_impact_musd",
+          "time_to_impact_months",
+          "execution_risk",
+          "rationale"
+        ],
+        "properties": {
+          "option_name": { "type": "string" },
+          "mode": { "type": "string" },
+          "estimated_savings_pct": { "type": "number" },
+          "capex_impact_musd": { "type": "number" },
+          "time_to_impact_months": { "type": "integer" },
+          "execution_risk": { "type": "string" },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+    "cost_reduction_opportunities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "lever",
+          "estimated_savings_pct_low",
+          "estimated_savings_pct_high",
+          "confidence",
+          "rationale"
+        ],
+        "properties": {
+          "title": { "type": "string" },
+          "lever": { "type": "string" },
+          "estimated_savings_pct_low": { "type": "number" },
+          "estimated_savings_pct_high": { "type": "number" },
+          "confidence": { "type": "number" },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+    "grounding_notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "memo_preview": { "type": "string" }
+  }
+}

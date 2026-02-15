@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eidolon-worker"
+version = "0.1.0"
+description = "BURCH-EIDOLON ingestion and refresh worker"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "sqlalchemy>=2.0.32",
+  "psycopg[binary]>=3.2.1",
+  "httpx>=0.27.0",
+  "pydantic-settings>=2.5.2"
+]
+
+[tool.setuptools.packages.find]
+include = ["eidolon_worker*"]

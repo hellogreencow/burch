@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimulationResult",
+  "type": "object",
+  "required": ["brand_id", "preset", "seed", "outcomes"],
+  "properties": {
+    "brand_id": { "type": "string" },
+    "preset": { "type": "string" },
+    "seed": { "type": "integer" },
+    "outcomes": {
+      "type": "object",
+      "required": ["revenue_delta_pct", "margin_delta_pct", "risk_shift"],
+      "properties": {
+        "revenue_delta_pct": {
+          "type": "object",
+          "required": ["p10", "p50", "p90"],
+          "properties": {
+            "p10": { "type": "number" },
+            "p50": { "type": "number" },
+            "p90": { "type": "number" }
+          }
+        },
+        "margin_delta_pct": {
+          "type": "object",
+          "required": ["p10", "p50", "p90"],
+          "properties": {
+            "p10": { "type": "number" },
+            "p50": { "type": "number" },
+            "p90": { "type": "number" }
+          }
+        },
+        "risk_shift": { "type": "number" }
+      }
+    }
+  }
+}

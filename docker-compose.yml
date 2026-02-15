@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eidolon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eidolon}
+      POSTGRES_DB: ${POSTGRES_DB:-eidolon}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+
+  searxng:
+    image: searxng/searxng:latest
+    volumes:
+      - ./infra/searxng/settings.yml:/etc/searxng/settings.yml
+
+  api:
+    build:
+      context: ./apps/api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://eidolon:eidolon@postgres:5432/eidolon}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://searxng:8080}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "${HOST_API_PORT:-8000}:8000"
+    volumes:
+      - ./reports:/app/reports
+    depends_on:
+      - postgres
+      - redis
+      - searxng
+
+  worker:
+    build:
+      context: ./apps/worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://eidolon:eidolon@postgres:5432/eidolon}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://searxng:8080}
+    depends_on:
+      - postgres
+      - redis
+      - searxng
+
+  scheduler:
+    build:
+      context: ./apps/worker
+    env_file:
+      - .env
+    command: ["python", "-m", "eidolon_worker.scheduler"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://eidolon:eidolon@postgres:5432/eidolon}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://searxng:8080}
+    depends_on:
+      - worker
+
+  web:
+    build:
+      context: ./apps/web
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+    ports:
+      - "${HOST_WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

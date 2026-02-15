@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ChatResponse",
+  "type": "object",
+  "required": ["answer", "confidence", "citations", "model"],
+  "properties": {
+    "answer": { "type": "string" },
+    "confidence": { "type": "number" },
+    "model": { "type": "string" },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "url", "source"],
+        "properties": {
+          "title": { "type": "string" },
+          "url": { "type": "string" },
+          "source": { "type": "string" },
+          "snippet": { "type": "string" }
+        }
+      }
+    }
+  }
+}
