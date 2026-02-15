@@ -24,20 +24,28 @@ class SearXNGProvider:
             return []
 
         url = f"{self.base_url.rstrip('/')}/search"
-        params = {
+        base_params = {
             "q": query,
             "format": "json",
             "pageno": 1,
             "safesearch": 0,
         }
-        if self.engines:
-            params["engines"] = self.engines
 
-        try:
-            with httpx.Client(timeout=8.0) as client:
+        def _fetch(params: dict) -> dict:
+            with httpx.Client(timeout=10.0) as client:
                 res = client.get(url, params=params)
             res.raise_for_status()
-            payload = res.json()
+            return res.json()
+
+        try:
+            params = dict(base_params)
+            if self.engines:
+                params["engines"] = self.engines
+            payload = _fetch(params)
+            # Some engines get rate-limited/captcha'd intermittently. If that happens, retry once without an explicit
+            # engine restriction so SearXNG can use whatever engines are currently healthy.
+            if self.engines and not (payload.get("results") or []):
+                payload = _fetch(dict(base_params))
         except Exception:
             return []
 
