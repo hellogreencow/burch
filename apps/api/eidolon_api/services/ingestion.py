@@ -716,6 +716,15 @@ def refresh_universe_snapshot(
     if not brands:
         return {"status": "ok", "brands": 0, "created": created, "updated": updated, "snapshots": 0}
 
+    # Backfill entity keys to improve dedupe across older rows.
+    dirty = False
+    for b in brands:
+        if not (b.entity_key or "").strip():
+            b.entity_key = entity_key_from_name(b.name) or _domain_label(_host(b.website))
+            dirty = True
+    if dirty:
+        db.commit()
+
     # Pre-rank by current evidence lane appearance (cheap) to decide which brands get deeper enrichment.
     brand_ids = [b.id for b in brands]
     eligible = (
