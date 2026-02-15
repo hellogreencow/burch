@@ -935,7 +935,8 @@ def refresh_universe_snapshot(
         brand_host = _host(brand.website)
         baseline_queries = [
             f"site:{brand_host}",
-            f"\"{brand.name}\" site:{brand_host}",
+            f"\"{brand.name}\" \"{brand_host}\"",
+            f"\"{brand_host}\"",
         ]
         enrich_queries: list[str] = []
         if brand.id in enrich_set:
@@ -955,6 +956,10 @@ def refresh_universe_snapshot(
             _ = provider
             for r in results:
                 if not r.url or r.url in seen_urls:
+                    continue
+                url_host = _host(r.url)
+                # For baseline signals, only trust URLs that corroborate the brand's own host.
+                if url_host != brand_host and not url_host.endswith(f".{brand_host}"):
                     continue
                 seen_urls.add(r.url)
                 row = {"title": r.title, "url": r.url, "snippet": r.snippet, "source": r.source}
@@ -1129,7 +1134,8 @@ def refresh_universe_snapshot(
         # Evidence: keep it real and deduped. Store a small baseline for all brands, and deeper evidence for the top set.
         evidence_cap = 12 if brand.id in enrich_set else 4
         seen = {row[0] for row in db.query(models.EvidenceCitation.url).filter(models.EvidenceCitation.brand_id == brand.id).all()}
-        store_candidates = (evidence_rows + extra_evidence_rows)[:evidence_cap]
+        # Prefer brand-site corroboration URLs first, then broader evidence, then extra enrichment.
+        store_candidates = (traffic_rows + evidence_rows + extra_evidence_rows)[:evidence_cap]
         for r in store_candidates:
             if not r["url"] or r["url"] in seen:
                 continue
