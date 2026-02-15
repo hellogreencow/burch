@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from statistics import fmean
+from urllib.parse import urlparse
 
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session
@@ -14,6 +15,32 @@ from .production import (
     build_production_options,
     build_production_snapshot,
 )
+from .entity import canonical_display_name, entity_key_from_name
+
+_NON_BRAND_HOST_FRAGMENTS = (
+    "cambridge.org",
+    "merriam-webster.com",
+    "dictionary.com",
+    "britannica.com",
+    "wiktionary.org",
+    "trendhunter.com",
+    "sgbonline.com",
+    "sgbmedia.com",
+    "powerbrands.com",
+    "forbes.com",
+    "bloomberg.com",
+    "nytimes.com",
+    "wsj.com",
+    "medium.com",
+    "substack.com",
+)
+
+
+def _host(url: str) -> str:
+    host = (urlparse(url or "").netloc or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return host
 
 SORT_MAP = {
     "heat": desc(models.Scorecard.heat_score),
@@ -62,8 +89,6 @@ SEARCH_CULTURAL_SIGNAL_CONFIG: list[tuple[str, str, str]] = [
     ("blog_mentions", "Substack/blog mentions", "news"),
     ("resale_activity", "Resale platform activity", "market_proxy"),
 ]
-
-from .entity import canonical_display_name, entity_key_from_name
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -345,6 +370,10 @@ def build_feed(
     items: list[schemas.BrandSummary] = []
     seen_entities: set[str] = set()
     for brand, score in rows:
+        website_host = _host(brand.website)
+        if not website_host or any(fragment in website_host for fragment in _NON_BRAND_HOST_FRAGMENTS):
+            continue
+
         display_name = _canonical_company_name(brand.name)
         entity_key = getattr(brand, "entity_key", None) or entity_key_from_name(display_name) or display_name.lower()
         if entity_key in seen_entities:

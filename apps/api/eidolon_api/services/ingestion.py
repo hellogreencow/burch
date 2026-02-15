@@ -19,21 +19,22 @@ from .scoring import AOV_BY_CATEGORY
 
 
 UNIVERSE_QUERY_LANES: list[tuple[str, str]] = [
-    ("emerging outdoor apparel brand", "Outdoor"),
-    ("new trail running brand", "Outdoor"),
-    ("emerging skincare brand", "Beauty"),
-    ("emerging haircare brand", "Beauty"),
-    ("clean personal care brand", "Personal Care"),
-    ("functional beverage brand", "Food & Beverage"),
-    ("emerging snack brand", "Food & Beverage"),
-    ("wellness supplement brand", "Wellness"),
-    ("pet food brand direct to consumer", "Pet"),
-    ("emerging home fragrance brand", "Home Goods"),
-    ("emerging home goods brand", "Home Goods"),
-    ("emerging baby brand direct to consumer", "Childcare"),
-    ("emerging kids toy brand", "Childcare"),
-    ("consumer electronics brand direct to consumer", "Consumer Tech"),
-    ("emerging apparel brand direct to consumer", "Apparel"),
+    # These are tuned to bias towards official brand sites / commerce pages, not publisher listicles.
+    ("outdoor apparel brand shop official site", "Outdoor"),
+    ("trail running brand shop official site", "Outdoor"),
+    ("skincare brand shop official site", "Beauty"),
+    ("haircare brand shop official site", "Beauty"),
+    ("clean personal care brand shop official site", "Personal Care"),
+    ("functional beverage brand shop direct to consumer", "Food & Beverage"),
+    ("snack brand shop direct to consumer", "Food & Beverage"),
+    ("wellness supplement brand shop official site", "Wellness"),
+    ("pet food brand shop direct to consumer", "Pet"),
+    ("home fragrance brand shop official site", "Home Goods"),
+    ("home goods brand shop official site", "Home Goods"),
+    ("baby brand shop direct to consumer", "Childcare"),
+    ("kids toy brand shop direct to consumer", "Childcare"),
+    ("consumer electronics brand shop direct to consumer", "Consumer Tech"),
+    ("apparel brand shop direct to consumer", "Apparel"),
 ]
 
 EXCLUDED_HOST_FRAGMENTS = (
@@ -55,6 +56,15 @@ EXCLUDED_HOST_FRAGMENTS = (
 
 # This is intentionally conservative: we only use this list to avoid treating publishers as brands.
 PUBLISHER_HOST_FRAGMENTS = (
+    "cambridge.org",
+    "merriam-webster.com",
+    "dictionary.com",
+    "britannica.com",
+    "wiktionary.org",
+    "trendhunter.com",
+    "sgbonline.com",
+    "sgbmedia.com",
+    "powerbrands.com",
     "forbes.com",
     "techcrunch.com",
     "nytimes.com",
@@ -229,7 +239,24 @@ def _fetch_site_metadata(site_url: str) -> tuple[str, str, str]:
 
 def _looks_like_publisher(title: str, desc: str) -> bool:
     text = f"{title} {desc}".lower()
-    publisher_terms = ("recipes", "recipe", "news", "magazine", "blog", "reviews", "review", "editorial", "podcast")
+    publisher_terms = (
+        "recipes",
+        "recipe",
+        "news",
+        "magazine",
+        "blog",
+        "reviews",
+        "review",
+        "editorial",
+        "podcast",
+        "dictionary",
+        "definition",
+        "meaning",
+        "encyclopedia",
+        "wiki",
+        "press",
+        "journal",
+    )
     ecommerce_terms = ("shop", "store", "buy", "cart", "checkout", "subscribe")
     if any(term in text for term in publisher_terms) and not any(term in text for term in ecommerce_terms):
         return True
