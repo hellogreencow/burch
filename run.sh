@@ -107,6 +107,12 @@ ensure_env_file
 setup_runtime_ports
 mkdir -p reports/generated
 
+if ! docker info >/dev/null 2>&1; then
+  echo "[run] Docker does not seem to be running."
+  echo "[run] Start Docker Desktop (or your Docker daemon) and re-run: ./run.sh"
+  exit 1
+fi
+
 echo "[run] Starting BURCH-EIDOLON..."
 echo "[run] API port: ${HOST_API_PORT}"
 echo "[run] Web port: ${HOST_WEB_PORT}"
