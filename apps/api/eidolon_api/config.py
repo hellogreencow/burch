@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     # Restrict to engines that reliably return results without CAPTCHAs in a self-hosted setup.
     # Comma-separated list passed through to SearXNG's `engines` query param.
     searxng_engines: str = "duckduckgo,brave,seznam,bing"
-    daily_query_budget: int = 500
+    # Dev-friendly default: reseed can easily require hundreds of queries even on small targets.
+    daily_query_budget: int = 5000
     monthly_spend_limit_usd: float = 300.0
 
     brave_api_key: str = ""
