@@ -739,8 +739,8 @@ def refresh_universe_snapshot(
         ranked = _rank_candidates(candidates.values())[: max(25, target_brands)]
         metadata_fetch_limit = max(30, enrich_top_n)
 
-        # If metasearch is too noisy / low recall, fall back to a real seed list (Wikidata).
-        if len(ranked) < 10:
+        # If metasearch produces nothing, fall back to a real seed list (Wikidata).
+        if len(ranked) == 0:
             seed_rows = _wikidata_seed_brands(limit=max(200, target_brands * 3))
             seen_hosts: set[str] = set()
             seen_ids: set[str] = set()
