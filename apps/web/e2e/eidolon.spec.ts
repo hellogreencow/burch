@@ -60,7 +60,8 @@ test.describe("BURCH-EIDOLON one-page feature suite", () => {
 
     await page.getByRole("heading", { name: "Deal intelligence in one uninterrupted page." }).click();
     await page.keyboard.press("c");
-    await expect(page.getByLabel("AI analyst message")).toBeFocused();
+    const dialog = page.getByRole("dialog", { name: "AI Analyst" });
+    await expect(dialog.getByPlaceholder("Ask BURCH-EIDOLON...")).toBeFocused();
   });
 
   test("feed controls drive API query state and search filter", async ({ page }) => {

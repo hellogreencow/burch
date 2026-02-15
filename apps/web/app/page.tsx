@@ -822,7 +822,7 @@ export default function HomePage() {
                     value={chatInput}
                     onChange={(event) => setChatInput(event.target.value)}
                     placeholder="Ask BURCH-EIDOLON..."
-                    aria-label="AI analyst message"
+                    aria-label="AI analyst overlay message"
                   />
                   <button type="submit" disabled={sendingChat}>
                     {sendingChat ? "Sending..." : "Send"}
